@@ -9,7 +9,7 @@ Launcher for admin tools requiring elevation
 ## Get the tool
 Download the latest version from the [releases]() page.
 
-The SHA256 hash of the latest release is: `9651953BF0638F3F6C1B4D9C932A52914D49B9B798035B9A1D99A2A6AB600236`
+The SHA256 hash of the latest release is: `4F0E9C3C32DEB0EF829B9CF311D3125DCE8A5421D8F51716FBFDE79054DABBA5`
 
 ## Getting started
 Check out the [docs](/docs) for information on features, usage, and troubleshooting.
