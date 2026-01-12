@@ -14,8 +14,9 @@ The SHA256 hash of the latest release is: `4F0E9C3C32DEB0EF829B9CF311D3125DCE8A5
 ## Getting started
 Check out the [docs](/docs) for information on features, usage, and troubleshooting.
 
-## Screenshot
-(screenshot)
+## Screenshots
+![](/images/screenshot-main-window.png)  
+More screenshots are available [here](/images).
 
 ## Support & Feedback
 If you found this solution helpful, please feel free to ⭐ star the repository!  
