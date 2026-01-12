@@ -9,7 +9,7 @@ Start-Process -FilePath 'C:\path\to\PSAdminLauncher.exe'
 Upon launch, the application dynamically scans your system for management consoles, control panel applets, and shell tasks. This discovery process is nearly instantaneous, ensuring the UI is ready for use immediately.
 
 ### Main Window
-(future screenshot)
+![](/images/screenshot-main-window.png)  
 
 The main window is divided into three distinct columns to help you quickly locate the correct administrative tool:  
   - MMC Snap-ins: Displays all .msc files found in the system directory (e.g., Computer Management, Event Viewer, Active Directory).
@@ -21,6 +21,7 @@ The main window is divided into three distinct columns to help you quickly locat
   - Exclusive Selection: Clicking an item in one list will automatically clear selections in the other two columns to ensure you always know which tool is currently "active."
 
 #### Controls & Information Bar
+![](/images/screenshot-main-window-search.png)  
 The bottom of the window contains the search bar, security context, and action buttons:
   - Filter: Type any string to filter all three columns simultaneously. The lists update in real-time as you type.
   - Force Admin (runas): When checked (default), the launcher will attempt to elevate the selected tool using the runas verb.
@@ -30,6 +31,8 @@ The bottom of the window contains the search bar, security context, and action b
   - Exit: Closes the application.
 
 ##### Authentication Flow for Launching New PowerShell Sessions
+![](/images/screenshot-launch-ps-cred-prompt.png)  
+![](/images/screenshot-launch-ps-new-context.png)  
 When you click the New PS (Any User) button, the following process occurs:
   1. Credential Prompt: A standard Windows Security modal appears. You can enter credentials for any domain or local account.
   2. Environment Loading: The application uses the -LoadUserProfile flag to ensure the new session has the correct registry hives and environment variables loaded.
