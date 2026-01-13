@@ -1,8 +1,11 @@
 <# 
     .SYNOPSIS
-        Launcher for administrative tools on Windows Server (MMC, CPL, God Mode, and MS-Settings).
+        Admin Tools Launcher (4-Column: MMC | CPL | God Mode | MS-Settings)
     .DESCRIPTION
-        Includes a dynamic scanner for 'ms-settings:' URIs extracted from system binaries.
+        Dynamic discovery of management tools with clean, mapped display names.
+        Optimized for PS2EXE and hardened server environments.
+    .VERSION
+        1.1.4
 #>
 
 [CmdletBinding()]
@@ -17,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Linq;
 
 public static class MsSettingsScanner
 {
@@ -32,7 +36,7 @@ public static class MsSettingsScanner
         foreach (var s in FindAscii(data)) set.Add(s);
         foreach (var s in FindUtf16(data)) set.Add(s);
 
-        var list = new List<string>(set);
+        var list = set.ToList();
         list.Sort(StringComparer.OrdinalIgnoreCase);
         return list;
     }
@@ -97,7 +101,10 @@ public static class MsSettingsScanner
     }
 }
 "@
-Add-Type -TypeDefinition $scannerSource -Language CSharp -IgnoreWarnings
+
+if (-not ([System.Management.Automation.PSTypeName]"MsSettingsScanner").Type) {
+    Add-Type -TypeDefinition $scannerSource -Language CSharp -IgnoreWarnings
+}
 
 # Helper function to create tool items
 function New-ToolItem {
@@ -120,11 +127,11 @@ function New-ToolItem {
 
 $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 
-# --- XAML UI (4 Columns) ---
+# --- XAML UI ---
 $xaml = @"
 <Window xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'
         xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'
-        Title='Admin Tools Launcher' Height='850' Width='1500'
+        Title='PSAdminLauncher' Height='850' Width='1550'
         WindowStartupLocation='CenterScreen' ResizeMode='CanResize'
         Background='#1E1E1E' Foreground='#F0F0F0' FontFamily='Segoe UI' FontSize='12'>
 
@@ -168,25 +175,25 @@ $xaml = @"
 
         <GroupBox Grid.Row='0' Grid.Column='0' Header='MMC Snap-ins (.msc)'>
             <ListView x:Name='MmcList' ItemContainerStyle='{StaticResource DarkListViewItemStyle}' Background='#252526' SelectionMode='Single'>
-                <ListView.View><GridView><GridViewColumn Header='Name' DisplayMemberBinding='{Binding Name}' Width='220'/></GridView></ListView.View>
+                <ListView.View><GridView><GridViewColumn Header='Name' DisplayMemberBinding='{Binding Name}' Width='230'/></GridView></ListView.View>
             </ListView>
         </GroupBox>
 
         <GroupBox Grid.Row='0' Grid.Column='1' Header='Control Panel (.cpl)'>
             <ListView x:Name='ControlList' ItemContainerStyle='{StaticResource DarkListViewItemStyle}' Background='#252526' SelectionMode='Single'>
-                <ListView.View><GridView><GridViewColumn Header='Applet' DisplayMemberBinding='{Binding Name}' Width='220'/></GridView></ListView.View>
+                <ListView.View><GridView><GridViewColumn Header='Applet' DisplayMemberBinding='{Binding Name}' Width='230'/></GridView></ListView.View>
             </ListView>
         </GroupBox>
 
         <GroupBox Grid.Row='0' Grid.Column='2' Header='Deep Tasks (God Mode)'>
             <ListView x:Name='GodList' ItemContainerStyle='{StaticResource DarkListViewItemStyle}' Background='#252526' SelectionMode='Single'>
-                <ListView.View><GridView><GridViewColumn Header='Task' DisplayMemberBinding='{Binding Name}' Width='330'/></GridView></ListView.View>
+                <ListView.View><GridView><GridViewColumn Header='Task' DisplayMemberBinding='{Binding Name}' Width='340'/></GridView></ListView.View>
             </ListView>
         </GroupBox>
 
         <GroupBox Grid.Row='0' Grid.Column='3' Header='Modern Settings (ms-settings)'>
             <ListView x:Name='SettingsList' ItemContainerStyle='{StaticResource DarkListViewItemStyle}' Background='#252526' SelectionMode='Single'>
-                <ListView.View><GridView><GridViewColumn Header='URI Path' DisplayMemberBinding='{Binding Name}' Width='330'/></GridView></ListView.View>
+                <ListView.View><GridView><GridViewColumn Header='URI Path' DisplayMemberBinding='{Binding Name}' Width='340'/></GridView></ListView.View>
             </ListView>
         </GroupBox>
 
@@ -217,27 +224,89 @@ $xaml = @"
 # --- Setup Window ---
 try { $window = [Windows.Markup.XamlReader]::Parse($xaml) } catch { return }
 
-$SearchBox = $window.FindName("SearchBox")
-$AdminCheck = $window.FindName("AdminCheck")
-$MmcList = $window.FindName("MmcList")
-$ControlList = $window.FindName("ControlList")
-$GodList = $window.FindName("GodList")
+$SearchBox    = $window.FindName("SearchBox")
+$AdminCheck   = $window.FindName("AdminCheck")
+$MmcList      = $window.FindName("MmcList")
+$ControlList  = $window.FindName("ControlList")
+$GodList      = $window.FindName("GodList")
 $SettingsList = $window.FindName("SettingsList")
-$AuthPsBtn = $window.FindName("AuthPsBtn")
-$LaunchBtn = $window.FindName("LaunchBtn")
-$CloseBtn = $window.FindName("CloseBtn")
+$AuthPsBtn    = $window.FindName("AuthPsBtn")
+$LaunchBtn    = $window.FindName("LaunchBtn")
+$CloseBtn     = $window.FindName("CloseBtn")
+
+# --- MmcMapping ---
+$MmcMapping = @{
+    "adrmsadmin.msc"     = "Active Directory Rights Management"
+    "adsiedit.msc"       = "ADSI Edit"
+    "azman.msc"          = "Authorization Manager"
+    "certlm.msc"         = "Certificates (Local Computer)"
+    "certmgr.msc"        = "Certificates (Current User)"
+    "certsrv.msc"        = "Certification Authority"
+    "certtmpl.msc"       = "Certificate Templates"
+    "cluadmin.msc"       = "Failover Cluster Manager"
+    "comexp.msc"         = "Component Services"
+    "compmgmt.msc"       = "Computer Management"
+    "devmoderunasuserconfig.msc" = "Dev Mode User Configuration"
+    "devmgmt.msc"        = "Device Manager"
+    "dfsmgmt.msc"        = "DFS Management"
+    "dhcpmgmt.msc"       = "DHCP Manager"
+    "diskmgmt.msc"       = "Disk Management"
+    "dnsmgmt.msc"        = "DNS Manager"
+    "domain.msc"         = "AD Domains and Trusts"
+    "dsa.msc"            = "AD Users and Computers"
+    "dssite.msc"         = "AD Sites and Services"
+    "eventvwr.msc"       = "Event Viewer"
+    "fileserverresourcemanager.msc" = "File Server Resource Manager (FSRM)"
+    "fsmgmt.msc"         = "Shared Folders"
+    "gpedit.msc"         = "Group Policy Editor (Local)"
+    "gpme.msc"           = "Group Policy Management Editor"
+    "gpmc.msc"           = "Group Policy Management"
+    "gptedit.msc"        = "Group Policy Object Editor"
+    "ipammgmt.msc"       = "IPAM Management"
+    "iscsicpl.msc"       = "iSCSI Initiator"
+    "lusrmgr.msc"        = "Local Users and Groups"
+    "napclcfg.msc"       = "NAP Client Configuration"
+    "nfsmgmt.msc"        = "Services for NFS"
+    "nps.msc"            = "Network Policy Server (RADIUS)"
+    "ocsp.msc"           = "Online Responder Management"
+    "perfmon.msc"        = "Performance Monitor"
+    "pkiview.msc"        = "Enterprise PKI"
+    "printmanagement.msc" = "Print Management"
+    "resmon.msc"         = "Resource Monitor"
+    "rrasmgmt.msc"       = "Routing and Remote Access"
+    "rsop.msc"           = "Resultant Set of Policy"
+    "sanmgr.msc"         = "Storage Explorer"
+    "secpol.msc"         = "Local Security Policy"
+    "services.msc"       = "Services"
+    "storsvcmgmt.msc"    = "Storage Subsystems Management"
+    "tapimgmt.msc"       = "Telephony"
+    "taskschd.msc"       = "Task Scheduler"
+    "tpm.msc"            = "TPM Management"
+    "tsadmin.msc"        = "RD Services Manager"
+    "tsconfig.msc"       = "RD Session Host Configuration"
+    "tsgateway.msc"      = "RD Gateway Manager"
+    "virtmgmt.msc"       = "Hyper-V Manager"
+    "wbadmin.msc"        = "Windows Server Backup"
+    "wdsmgmt.msc"        = "Windows Deployment Services"
+    "wf.msc"             = "Windows Firewall w/ Adv. Security"
+    "winsmgmt.msc"       = "WINS Manager"
+    "wlbadmin.msc"       = "Network Load Balancing Manager"
+    "wmimgmt.msc"        = "WMI Control"
+    "wsusgui.msc"        = "Update Services (WSUS)"
+}
 
 # --- Discovery ---
 $system32 = [Environment]::GetFolderPath("System")
-$mmcMaster = New-Object System.Collections.Generic.List[PSObject]
-$controlMaster = New-Object System.Collections.Generic.List[PSObject]
-$godMaster = New-Object System.Collections.Generic.List[PSObject]
+$mmcMaster      = New-Object System.Collections.Generic.List[PSObject]
+$controlMaster  = New-Object System.Collections.Generic.List[PSObject]
+$godMaster      = New-Object System.Collections.Generic.List[PSObject]
 $settingsMaster = New-Object System.Collections.Generic.List[PSObject]
 
 # 1. MMC
 Get-ChildItem (Join-Path $system32 "*.msc") | ForEach-Object {
-    if ($_.Name -match "fxs|tpm|pnt") { return }
-    $friendly = (Get-Item $_.FullName).VersionInfo.FileDescription
+    if ($_.Name -match "fxs|tpm|pnt|iis|inetsrv") { return }
+    $friendly = if ($MmcMapping.ContainsKey($_.Name.ToLower())) { $MmcMapping[$_.Name.ToLower()] } 
+                else { (Get-Item $_.FullName).VersionInfo.FileDescription }
     if (-not $friendly) { $friendly = $_.BaseName }
     $mmcMaster.Add((New-ToolItem -Name $friendly -FilePath "mmc.exe" -Argument $_.FullName))
 }
@@ -258,15 +327,16 @@ foreach ($item in $godFolder.Items()) {
 
 # 4. Modern Settings (ms-settings)
 $settingsDll = Join-Path $env:windir "ImmersiveControlPanel\SystemSettings.dll"
-[MsSettingsScanner]::ExtractAll($settingsDll) | ForEach-Object {
-    # Strip the prefix for a cleaner display name if desired, but keeping URI for clarity
-    $settingsMaster.Add((New-ToolItem -Name $_ -FilePath "ms-settings" -Argument $_))
+if (Test-Path $settingsDll) {
+    [MsSettingsScanner]::ExtractAll($settingsDll) | ForEach-Object {
+        $settingsMaster.Add((New-ToolItem -Name $_ -FilePath "ms-settings" -Argument $_))
+    }
 }
 
 # Initial Sorting/Binding
-$MmcList.ItemsSource = @($mmcMaster | Sort-Object Name)
-$ControlList.ItemsSource = @($controlMaster | Sort-Object Name)
-$GodList.ItemsSource = @($godMaster | Sort-Object Name)
+$MmcList.ItemsSource      = @($mmcMaster | Sort-Object Name)
+$ControlList.ItemsSource  = @($controlMaster | Sort-Object Name)
+$GodList.ItemsSource      = @($godMaster | Sort-Object Name)
 $SettingsList.ItemsSource = @($settingsMaster | Sort-Object Name)
 
 # --- Functions ---
@@ -274,11 +344,10 @@ function Start-Tool {
     param($Item, [bool]$AsAdmin)
     if (-not $Item) { return }
     try {
-        if ($Item.FilePath -eq "SHELL_ITEM") { 
-            $Item.ShellItem.InvokeVerb("open") 
+        if ($Item.FilePath -eq "SHELL_ITEM") {
+            $Item.ShellItem.InvokeVerb("open")
         }
         elseif ($Item.FilePath -eq "ms-settings") {
-            # Start-Process handles ms-settings: URIs natively via shell
             Start-Process $Item.Name
         }
         else {
@@ -310,27 +379,27 @@ $SettingsList.Add_SelectionChanged({ if ($SettingsList.SelectedItem) { Update-Ex
 
 # --- Re-Auth Logic ---
 $AuthPsBtn.Add_Click({
-        try {
-            $cred = Get-Credential -Message "Enter credentials for the NEW local session context"
-            if ($cred) {
-                Start-Process "powershell.exe" -ArgumentList "-NoExit -NoProfile" `
-                    -Credential $cred `
-                    -WorkingDirectory "$env:windir\System32" `
-                    -LoadUserProfile
-            }
+    try {
+        $cred = Get-Credential -Message "Enter credentials for the NEW local session context"
+        if ($cred) {
+            Start-Process "powershell.exe" -ArgumentList "-NoExit -NoProfile" `
+                -Credential $cred `
+                -WorkingDirectory "$env:windir\System32" `
+                -LoadUserProfile
         }
-        catch {
-            if ($_.Exception.Message -notmatch "cancelled") {
-                [System.Windows.MessageBox]::Show("Auth Error: $($_.Exception.Message)")
-            }
+    }
+    catch {
+        if ($_.Exception.Message -notmatch "cancelled") {
+            [System.Windows.MessageBox]::Show("Auth Error: $($_.Exception.Message)")
         }
-    })
+    }
+})
 
 # --- UI Events ---
 $LaunchBtn.Add_Click({ 
-        $sel = ($MmcList.SelectedItem, $ControlList.SelectedItem, $GodList.SelectedItem, $SettingsList.SelectedItem | Where-Object { $_ })[0]
-        Start-Tool -Item $sel -AsAdmin ([bool]$AdminCheck.IsChecked) 
-    })
+    $sel = ($MmcList.SelectedItem, $ControlList.SelectedItem, $GodList.SelectedItem, $SettingsList.SelectedItem | Where-Object { $_ })[0]
+    Start-Tool -Item $sel -AsAdmin ([bool]$AdminCheck.IsChecked) 
+})
 
 $MmcList.Add_MouseDoubleClick({ if ($MmcList.SelectedItem) { Start-Tool -Item $MmcList.SelectedItem -AsAdmin ([bool]$AdminCheck.IsChecked) } })
 $ControlList.Add_MouseDoubleClick({ if ($ControlList.SelectedItem) { Start-Tool -Item $ControlList.SelectedItem -AsAdmin ([bool]$AdminCheck.IsChecked) } })
@@ -338,12 +407,12 @@ $GodList.Add_MouseDoubleClick({ if ($GodList.SelectedItem) { Start-Tool -Item $G
 $SettingsList.Add_MouseDoubleClick({ if ($SettingsList.SelectedItem) { Start-Tool -Item $SettingsList.SelectedItem -AsAdmin ([bool]$AdminCheck.IsChecked) } })
 
 $SearchBox.Add_TextChanged({
-        $t = $SearchBox.Text.ToLower()
-        $MmcList.ItemsSource = @($mmcMaster | Where-Object { $_.Name.ToLower().Contains($t) } | Sort-Object Name)
-        $ControlList.ItemsSource = @($controlMaster | Where-Object { $_.Name.ToLower().Contains($t) } | Sort-Object Name)
-        $GodList.ItemsSource = @($godMaster | Where-Object { $_.Name.ToLower().Contains($t) } | Sort-Object Name)
-        $SettingsList.ItemsSource = @($settingsMaster | Where-Object { $_.Name.ToLower().Contains($t) } | Sort-Object Name)
-    })
+    $t = $SearchBox.Text.ToLower()
+    $MmcList.ItemsSource      = @($mmcMaster | Where-Object { $_.Name.ToLower().Contains($t) } | Sort-Object Name)
+    $ControlList.ItemsSource  = @($controlMaster | Where-Object { $_.Name.ToLower().Contains($t) } | Sort-Object Name)
+    $GodList.ItemsSource      = @($godMaster | Where-Object { $_.Name.ToLower().Contains($t) } | Sort-Object Name)
+    $SettingsList.ItemsSource = @($settingsMaster | Where-Object { $_.Name.ToLower().Contains($t) } | Sort-Object Name)
+})
 
 $CloseBtn.Add_Click({ $window.Close() })
 if ($window) { $window.ShowDialog() | Out-Null }
