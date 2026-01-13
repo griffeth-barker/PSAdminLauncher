@@ -199,7 +199,7 @@ $xaml = @"
 
         <GroupBox Grid.Row='0' Grid.Column='3' Header='Modern Settings (ms-settings)'>
             <ListView x:Name='SettingsList' ItemContainerStyle='{StaticResource DarkListViewItemStyle}' Background='#252526' SelectionMode='Single'>
-                <ListView.View><GridView><GridViewColumn Header='URI Path' DisplayMemberBinding='{Binding Name}' Width='340'/></GridView></ListView.View>
+                <ListView.View><GridView><GridViewColumn Header='Setting' DisplayMemberBinding='{Binding Name}' Width='340'/></GridView></ListView.View>
             </ListView>
         </GroupBox>
 
@@ -306,6 +306,65 @@ $MmcMapping = @{
     "wmimgmt.msc"        = "WMI Control"
     "wsusgui.msc"        = "Update Services (WSUS)"
 }
+
+$SettingsMapping = @{
+    "ms-settings:about"                 = "About System"
+    "ms-settings:activation"            = "Activation"
+    "ms-settings:appsfeatures"          = "Apps & Features"
+    "ms-settings:autoplay"              = "AutoPlay"
+    "ms-settings:backup"                = "Backup"
+    "ms-settings:bluetooth"             = "Bluetooth"
+    "ms-settings:clipboard"             = "Clipboard Settings"
+    "ms-settings:connecteddevices"      = "Connected Devices"
+    "ms-settings:dateandtime"           = "Date & Time"
+    "ms-settings:defaultapps"           = "Default Apps"
+    "ms-settings:delivery-optimization" = "Delivery Optimization"
+    "ms-settings:developers"            = "Developers"
+    "ms-settings:display"               = "Display"
+    "ms-settings:emailandaccounts"      = "Email & Accounts"
+    "ms-settings:findmydevice"          = "Find My Device"
+    "ms-settings:firewall"              = "Windows Security (Firewall)"
+    "ms-settings:language"              = "Language"
+    "ms-settings:mouse"                 = "Mouse"
+    "ms-settings:multitasking"          = "Multitasking"
+    "ms-settings:network-cellular"      = "Cellular"
+    "ms-settings:network-datausage"     = "Data Usage"
+    "ms-settings:network-dialup"        = "Dial-up"
+    "ms-settings:network-ethernet"      = "Ethernet"
+    "ms-settings:network-mobilehotspot" = "Mobile Hotspot"
+    "ms-settings:network-proxy"         = "Proxy"
+    "ms-settings:network-status"        = "Network Status"
+    "ms-settings:network-vpn"           = "VPN"
+    "ms-settings:network-wifi"          = "Wi-Fi"
+    "ms-settings:nightlight"            = "Night Light"
+    "ms-settings:notifications"         = "Notifications"
+    "ms-settings:optionalfeatures"      = "Optional Features"
+    "ms-settings:otherusers"            = "Other Users"
+    "ms-settings:powersleep"            = "Power & Sleep"
+    "ms-settings:printers"              = "Printers & Scanners"
+    "ms-settings:privacy-accountinfo"   = "Privacy: Account Info"
+    "ms-settings:privacy-backgroundapps"= "Privacy: Background Apps"
+    "ms-settings:privacy-location"      = "Privacy: Location"
+    "ms-settings:privacy-microphone"    = "Privacy: Microphone"
+    "ms-settings:privacy-webcam"        = "Privacy: Camera"
+    "ms-settings:project"               = "Projecting to this PC"
+    "ms-settings:recovery"              = "Recovery"
+    "ms-settings:region"                = "Region"
+    "ms-settings:remotedesktop"         = "Remote Desktop"
+    "ms-settings:signinoptions"         = "Sign-in Options"
+    "ms-settings:speech"                = "Speech"
+    "ms-settings:startupapps"           = "Startup Apps"
+    "ms-settings:storagesense"          = "Storage / Storage Sense"
+    "ms-settings:troubleshoot"          = "Troubleshoot"
+    "ms-settings:typing"                = "Typing"
+    "ms-settings:usb"                   = "USB"
+    "ms-settings:windowsdefender"       = "Windows Defender"
+    "ms-settings:windowsupdate"         = "Windows Update"
+    "ms-settings:windowsupdate-history" = "Update History"
+    "ms-settings:windowsupdate-options" = "Update: Advanced Options"
+    "ms-settings:workplace"             = "Access Work or School"
+    "ms-settings:yourinfo"              = "Your Info"
+}
 #endregion DECLARATIONS
 
 #region FETCH DATA
@@ -342,7 +401,9 @@ foreach ($item in $godFolder.Items()) {
 $settingsDll = Join-Path $env:windir "ImmersiveControlPanel\SystemSettings.dll"
 if (Test-Path $settingsDll) {
     [MsSettingsScanner]::ExtractAll($settingsDll) | ForEach-Object {
-        $settingsMaster.Add((New-ToolItem -Name $_ -FilePath "ms-settings" -Argument $_))
+        $uri = $_.ToLower()
+        $friendly = if ($SettingsMapping.ContainsKey($uri)) { $SettingsMapping[$uri] } else { $_ }
+        $settingsMaster.Add((New-ToolItem -Name $friendly -FilePath "ms-settings" -Argument $_))
     }
 }
 
@@ -359,7 +420,7 @@ function Start-Tool {
             $Item.ShellItem.InvokeVerb("open")
         }
         elseif ($Item.FilePath -eq "ms-settings") {
-            Start-Process $Item.Name
+            Start-Process $Item.Argument
         }
         else {
             $psi = New-Object System.Diagnostics.ProcessStartInfo -Property @{
