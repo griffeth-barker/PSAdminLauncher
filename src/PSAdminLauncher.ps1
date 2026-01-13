@@ -1,20 +1,27 @@
 <# 
     .SYNOPSIS
-        Admin Tools Launcher (4-Column: MMC | CPL | God Mode | MS-Settings)
+        Launcher for administrative tools on Windows Server.
     .DESCRIPTION
-        Dynamic discovery of management tools with clean, mapped display names.
-        Optimized for PS2EXE and hardened server environments.
-    .VERSION
-        1.1.4
+        Launcher for administrative tools including snap-ins, control panel items, God Mode tasks,
+        and modern Windows Settings.
+    .INPUTS
+        None
+    .OUTPUTS
+        None
+    .NOTES
+        None
 #>
 
 [CmdletBinding()]
 param()
 
-# Load WPF assemblies
+#region DECLARATIONS
+# Load assemblies
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase | Out-Null
 
-# --- Integrated High-performance URI Scanner (C#) ---
+# Use ms-settings URI scanner to dynamically load modern settings URIs from SystemSettings.dll
+# See: https://techcommunity.microsoft.com/blog/coreinfrastructureandsecurityblog/understanding-windows-settings-uris-and-how-to-use-them-in-enterprise-environmen/4481486
+# Credit: Helmut Wagensonner
 $scannerSource = @"
 using System;
 using System.Collections.Generic;
@@ -106,7 +113,6 @@ if (-not ([System.Management.Automation.PSTypeName]"MsSettingsScanner").Type) {
     Add-Type -TypeDefinition $scannerSource -Language CSharp -IgnoreWarnings
 }
 
-# Helper function to create tool items
 function New-ToolItem {
     param(
         [Parameter(Mandatory)][string]$Name,
@@ -127,7 +133,7 @@ function New-ToolItem {
 
 $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 
-# --- XAML UI ---
+# Declare main window XAML
 $xaml = @"
 <Window xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'
         xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'
@@ -221,9 +227,15 @@ $xaml = @"
 </Window>
 "@
 
-# --- Setup Window ---
-try { $window = [Windows.Markup.XamlReader]::Parse($xaml) } catch { return }
+# 
+try { 
+    $window = [Windows.Markup.XamlReader]::Parse($xaml) 
+}
+catch { 
+    return 
+}
 
+# Add main window interfaces
 $SearchBox    = $window.FindName("SearchBox")
 $AdminCheck   = $window.FindName("AdminCheck")
 $MmcList      = $window.FindName("MmcList")
@@ -234,7 +246,7 @@ $AuthPsBtn    = $window.FindName("AuthPsBtn")
 $LaunchBtn    = $window.FindName("LaunchBtn")
 $CloseBtn     = $window.FindName("CloseBtn")
 
-# --- MmcMapping ---
+# Mapping of snap-in names to friendlier display names
 $MmcMapping = @{
     "adrmsadmin.msc"     = "Active Directory Rights Management"
     "adsiedit.msc"       = "ADSI Edit"
@@ -294,15 +306,16 @@ $MmcMapping = @{
     "wmimgmt.msc"        = "WMI Control"
     "wsusgui.msc"        = "Update Services (WSUS)"
 }
+#endregion DECLARATIONS
 
-# --- Discovery ---
+#region FETCH DATA
 $system32 = [Environment]::GetFolderPath("System")
 $mmcMaster      = New-Object System.Collections.Generic.List[PSObject]
 $controlMaster  = New-Object System.Collections.Generic.List[PSObject]
 $godMaster      = New-Object System.Collections.Generic.List[PSObject]
 $settingsMaster = New-Object System.Collections.Generic.List[PSObject]
 
-# 1. MMC
+# For MMC Snap-Ins
 Get-ChildItem (Join-Path $system32 "*.msc") | ForEach-Object {
     if ($_.Name -match "fxs|tpm|pnt|iis|inetsrv") { return }
     $friendly = if ($MmcMapping.ContainsKey($_.Name.ToLower())) { $MmcMapping[$_.Name.ToLower()] } 
@@ -311,21 +324,21 @@ Get-ChildItem (Join-Path $system32 "*.msc") | ForEach-Object {
     $mmcMaster.Add((New-ToolItem -Name $friendly -FilePath "mmc.exe" -Argument $_.FullName))
 }
 
-# 2. Control Panel
+# For Control Panel
 Get-ChildItem (Join-Path $system32 "*.cpl") | ForEach-Object {
     $friendly = (Get-Item $_.FullName).VersionInfo.FileDescription
     if (-not $friendly) { $friendly = $_.BaseName }
     $controlMaster.Add((New-ToolItem -Name $friendly -FilePath "control.exe" -Argument $_.Name))
 }
 
-# 3. God Mode
+# For God Mode tasks
 $shell = New-Object -ComObject Shell.Application
 $godFolder = $shell.NameSpace("shell:::{ED7BA470-8E54-465E-825C-99712043E01C}")
 foreach ($item in $godFolder.Items()) {
     if ($item.Name) { $godMaster.Add((New-ToolItem -Name $item.Name -FilePath "SHELL_ITEM" -ShellItem $item)) }
 }
 
-# 4. Modern Settings (ms-settings)
+# For Modern Windows Settings
 $settingsDll = Join-Path $env:windir "ImmersiveControlPanel\SystemSettings.dll"
 if (Test-Path $settingsDll) {
     [MsSettingsScanner]::ExtractAll($settingsDll) | ForEach-Object {
@@ -333,13 +346,11 @@ if (Test-Path $settingsDll) {
     }
 }
 
-# Initial Sorting/Binding
 $MmcList.ItemsSource      = @($mmcMaster | Sort-Object Name)
 $ControlList.ItemsSource  = @($controlMaster | Sort-Object Name)
 $GodList.ItemsSource      = @($godMaster | Sort-Object Name)
 $SettingsList.ItemsSource = @($settingsMaster | Sort-Object Name)
 
-# --- Functions ---
 function Start-Tool {
     param($Item, [bool]$AsAdmin)
     if (-not $Item) { return }
@@ -360,8 +371,10 @@ function Start-Tool {
     }
     catch { [System.Windows.MessageBox]::Show("Launch Failed: $($_.Exception.Message)") }
 }
+#endregion FETCH DATA
 
-# --- Selection Logic ---
+#region LOGIC
+# List item selection
 $script:isUpdatingSelection = $false
 function Update-ExclusiveSelection {
     param($sourceList)
@@ -377,7 +390,7 @@ $ControlList.Add_SelectionChanged({ if ($ControlList.SelectedItem) { Update-Excl
 $GodList.Add_SelectionChanged({ if ($GodList.SelectedItem) { Update-ExclusiveSelection -sourceList $GodList } })
 $SettingsList.Add_SelectionChanged({ if ($SettingsList.SelectedItem) { Update-ExclusiveSelection -sourceList $SettingsList } })
 
-# --- Re-Auth Logic ---
+# Re-authentication for launching a PowerShell session
 $AuthPsBtn.Add_Click({
     try {
         $cred = Get-Credential -Message "Enter credentials for the NEW local session context"
@@ -395,7 +408,7 @@ $AuthPsBtn.Add_Click({
     }
 })
 
-# --- UI Events ---
+# UI Events
 $LaunchBtn.Add_Click({ 
     $sel = ($MmcList.SelectedItem, $ControlList.SelectedItem, $GodList.SelectedItem, $SettingsList.SelectedItem | Where-Object { $_ })[0]
     Start-Tool -Item $sel -AsAdmin ([bool]$AdminCheck.IsChecked) 
@@ -416,3 +429,4 @@ $SearchBox.Add_TextChanged({
 
 $CloseBtn.Add_Click({ $window.Close() })
 if ($window) { $window.ShowDialog() | Out-Null }
+#endregion LOGIC
