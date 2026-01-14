@@ -1,4 +1,4 @@
-$version = "0.1.0"
+$version = "0.2.0"
 $name = "PSAdminLauncher"
 
 # Run this script from the root of the project directory
@@ -9,12 +9,11 @@ $buildParams = @{
     STA              = $true
     NoConsole        = $true
     NoConfigFile     = $true
-    Title            = "PowerShell Admin Launcher"
+    Title            = "$name"
     EmbedFiles       = "$pwd\src\$name.ps1"
     Description      = "Launcher for admin tools requiring elevation"
     Company          = "griff.systems"
     Version          = "$version"
-    RequireAdmin     = $true
     Verbose          = $true
 }
 Invoke-PS2EXE @buildParams

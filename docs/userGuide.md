@@ -14,7 +14,8 @@ Upon launch, the application dynamically scans your system for management consol
 The main window is divided into three distinct columns to help you quickly locate the correct administrative tool:  
   - MMC Snap-ins: Displays all .msc files found in the system directory (e.g., Computer Management, Event Viewer, Active Directory).
   - Control Panel: Displays standard .cpl applets found in System32 (e.g., Network Connections, Power Options).
-  - All Tasks (God Mode): Provides an unfiltered list of every deep-link task available in the Windows Master Control Panel namespace.
+  - Deep Tasks (God Mode): Provides an unfiltered list of every deep-link task available in the Windows Master Control Panel namespace.
+  - Modern Windows Settings: Direct links to the various pages in the Windows Settings app, dynamically loaded from the DLL.
 
 #### Navigation Features  
   - Click: You can double-click any item in any list to launch it immediately.
@@ -24,7 +25,7 @@ The main window is divided into three distinct columns to help you quickly locat
 ![](/images/screenshot-main-window-search.png)  
 The bottom of the window contains the search bar, security context, and action buttons:
   - Filter: Type any string to filter all three columns simultaneously. The lists update in real-time as you type.
-  - Force Admin (runas): When checked (default), the launcher will attempt to elevate the selected tool using the runas verb.
+  - Force Admin (RunAs): When checked (default), the launcher will attempt to elevate the selected tool using the runas verb.
   - Context Indicator: Displays the current user identity in DOMAIN\username format. This text is highlighted in green for easy visibility, allowing you to confirm your current security token at a glance.
   - Launch PowerShell: Launches an authentication flow. This will prompt you for credentials and spawn a new PowerShell session in a completely fresh local security context of the provided user.
   - Launch Selected: Executes the highlighted tool from any of the three columns.

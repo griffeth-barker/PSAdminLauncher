@@ -3,11 +3,35 @@
 All notable changes to **PSAdminLauncher** will be documented in this file.  
 This project adheres to **Semantic Versioning** (SemVer) and follows the spirit of **Keep a Changelog**.
 
-## [Unreleased]
+## Unreleased
 
-- Add support for Settings (`ms-settings:\*`).
 - Add status bar.
 - Add light/dark theme toggle.
+
+## [0.2.0] - 2026-01-13
+
+### Added
+- Modern Settings (ms-settings) Column: Implemented a fourth UI column that dynamically discovers and launches modern Windows Settings URIs.
+
+- C# Scanner: Integrated an in-memory C# class using the Boyer-Moore-Horspool algorithm to instantly extract URIs from SystemSettings.dll for modern Windows settings.
+  - Full credit for this goes to Helmut Wagensonner (see [Understanding Windows Settings URIs and How to Use Them in Enterprise Environments](https://techcommunity.microsoft.com/blog/coreinfrastructureandsecurityblog/understanding-windows-settings-uris-and-how-to-use-them-in-enterprise-environmen/4481486))
+
+- RSAT Name Mapping: Expanded the friendly name dictionary to include nearly 50 administrative snap-ins, covering Active Directory, DHCP, DNS, WDS, WSUS, and Cluster Management.
+
+- Enhanced Discovery Filtering: Modified the MMC discovery loop to automatically exclude redundant or legacy items (like iis.msc) that are now handled more effectively by the Deep Tasks column.
+
+- Expanded Workspace: Increased the default window width to 1550px to provide a comfortable viewing area for the new four-column architecture.
+
+### Fixed
+- Session Persistence Fix: Added a type-guard check for the MsSettingsScanner class to prevent TYPE_ALREADY_EXISTS errors when running the script multiple times in the same PowerShell session (this was not actually an issue in the prior version, but cosmetically annoying during development).
+
+- Launch Logic for URIs: Refactored the Start-Tool function to detect ms-settings: protocols and launch them via the shell rather than attempting to pass them as executable arguments.
+
+- IEnumerable Conversion Error: Wrapped all list filtering results in the array sub-expression operator @() to prevent WPF binding crashes when a search filter returned exactly one result.
+
+- Path Resolution: Hardcoded absolute paths for MMC snap-ins to ensure reliability when the application is launched from non-standard working directories.
+
+- Recursive Selection Loop: Added a script-level boolean guard ($isUpdatingSelection) to prevent infinite event loops when programmatically clearing selections across multiple columns.
 
 ## [0.1.0] – 2026-01-05
 
@@ -32,5 +56,5 @@ This project adheres to **Semantic Versioning** (SemVer) and follows the spirit 
 
 - PS2EXE Optimization: Refined all modal windows and credential prompts to use GUI-based handlers (CREDUIPROMPT), ensuring full compatibility when wrapped as a standalone executable.
 
-[Unreleased]: 
-[0.1.0]: 
+[0.2.0]: https://github.com/griffeth-barker/PSAdminLauncher/releases/tag/v0.2.0  
+[0.1.0]: https://github.com/griffeth-barker/PSAdminLauncher/releases/tag/v0.1.0  
