@@ -9,8 +9,6 @@ Launcher for admin tools requiring elevation
 ## Get the tool
 Download the latest version from the [releases](https://github.com/griffeth-barker/PSAdminLauncher/releases/) page.
 
-The SHA256 hash of the latest release is: `0B644A06B77BF7FAFE2B854257404BB9FBBCED4C469BD1CCD5785EE36B96E215`
-
 ## Getting started
 Check out the [docs](/docs) for information on features, usage, and troubleshooting.
 
